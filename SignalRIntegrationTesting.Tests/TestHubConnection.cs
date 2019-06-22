@@ -13,18 +13,14 @@ namespace SignalRIntegrationTesting.Tests
         private readonly Mock<Action<TEvent>> _handlerMock;
         private readonly int _verificationTimeout;
 
-        internal TestHubConnection(HubConnection connection, string expectedEventToReceive, int verificationTimeout = 10000)
+        internal TestHubConnection(string hubUrl, string expectedEventToReceive, int verificationTimeout = 10000)
         {
-            if (connection.State == HubConnectionState.Connected)
-            {
-                throw new ArgumentException($"You shouldn't pass open connections. Use {nameof(StartAsync)}" +
-                    $"to open the connection before verifying that the message was received.");
-            }
-
             _handlerMock = new Mock<Action<TEvent>>();
             _expectedEventToReceive = expectedEventToReceive;
-            _connection = connection;
             _verificationTimeout = verificationTimeout;
+            _connection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .Build();
         }
 
         public async Task StartAsync()
