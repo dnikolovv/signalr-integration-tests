@@ -1,39 +1,77 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Moq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace SignalRIntegrationTesting.Tests
 {
-    public class TestHubConnection<TEvent>
+    public class TestHubConnection
     {
         private readonly HubConnection _connection;
-        private readonly string _expectedEventToReceive;
-        private readonly Mock<Action<TEvent>> _handlerMock;
+        private readonly Dictionary<Type, object> _handlersMap;
         private readonly int _verificationTimeout;
 
-        internal TestHubConnection(HubConnection connection, string expectedEventToReceive, int verificationTimeout = 10000)
+        internal TestHubConnection(string url, int verificationTimeout = 10000)
         {
-            if (connection.State == HubConnectionState.Connected)
-            {
-                throw new ArgumentException($"You shouldn't pass open connections. Use {nameof(StartAsync)}" +
-                    $"to open the connection before verifying that the message was received.");
-            }
+            _connection = new HubConnectionBuilder()
+                .WithUrl(url)
+                .Build();
 
-            _handlerMock = new Mock<Action<TEvent>>();
-            _expectedEventToReceive = expectedEventToReceive;
-            _connection = connection;
             _verificationTimeout = verificationTimeout;
+            _handlersMap = new Dictionary<Type, object>();
+        }
+
+        public void Expect<TEvent>(string expectedName)
+        {
+            var handlerMock = new Mock<Action<TEvent>>();
+            RegisterHandler(handlerMock);
+            _connection.On(expectedName, handlerMock.Object);
+        }
+
+        public void Expect(string expectedName, Type expectedType)
+        {
+            var expectMethod = typeof(TestHubConnection)
+                .GetMethods()
+                .First(m => m.ContainsGenericParameters && m.Name == nameof(Expect))
+                .MakeGenericMethod(new[] { expectedType });
+
+            expectMethod.Invoke(this, new object[] { expectedName });
         }
 
         public async Task StartAsync()
         {
             await _connection.StartAsync();
-            _connection.On(_expectedEventToReceive, _handlerMock.Object);
         }
 
-        public Task VerifyMessageReceived(Expression<Func<TEvent, bool>> predicate, Times times) =>
-            _handlerMock.VerifyWithTimeoutAsync(x => x(It.Is<TEvent>(predicate)), times, _verificationTimeout);
+        public async Task VerifyMessageReceived<TEvent>(Expression<Func<TEvent, bool>> predicate, Times times)
+        {
+            if (!_handlersMap.ContainsKey(typeof(TEvent)))
+                throw new HandlerNotRegisteredException(typeof(TEvent));
+
+            var handlersForType = _handlersMap[typeof(TEvent)];
+
+            foreach (var handler in (List<Mock<Action<TEvent>>>)handlersForType)
+            {
+                await handler.VerifyWithTimeoutAsync(
+                    x => x(It.Is(predicate)),
+                    times,
+                    _verificationTimeout);
+            }
+        }
+
+        private void RegisterHandler<TEvent>(Mock<Action<TEvent>> handler)
+        {
+            if (!_handlersMap.TryGetValue(typeof(TEvent), out object handlersForType))
+            {
+                handlersForType = new List<Mock<Action<TEvent>>>();
+                _handlersMap[typeof(TEvent)] = handlersForType;
+            }
+
+            var handlers = (List<Mock<Action<TEvent>>>)handlersForType;
+            handlers.Add(handler);
+        }
     }
 }

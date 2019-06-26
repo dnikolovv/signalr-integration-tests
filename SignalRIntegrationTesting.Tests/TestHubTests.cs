@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using Moq;
+﻿using Moq;
 using SignalRIntegrationTesting.Models;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -24,8 +23,8 @@ namespace SignalRIntegrationTesting.Tests
 
             var connection = new TestHubConnectionBuilder()
                 .OnHub(_fixture.GetCompleteServerUrl("/testHub"))
-                .WithExpectedMessage(nameof(Notification))
-                .Build<Notification>();
+                .WithExpectedEvent<Notification>(nameof(Notification))
+                .Build();
 
             await connection.StartAsync();
 
@@ -34,7 +33,9 @@ namespace SignalRIntegrationTesting.Tests
                 httpClient.PostAsJsonAsync("/hub/test", notificationToSend));
 
             // Assert
-            await connection.VerifyMessageReceived(n => n.Message == notificationToSend.Message, Times.Once());
+            await connection.VerifyMessageReceived<Notification>(
+                n => n.Message == notificationToSend.Message,
+                Times.Once());
         }
     }
 }
