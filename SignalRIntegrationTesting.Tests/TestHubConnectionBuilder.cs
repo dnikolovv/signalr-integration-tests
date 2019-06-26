@@ -1,21 +1,27 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SignalRIntegrationTesting.Tests
 {
     public class TestHubConnectionBuilder
     {
-        private string _eventName;
+        private List<(Type Type, string Name)> _expectedEventNames;
         private string _hubUrl;
 
-        public TestHubConnection<TEvent> Build<TEvent>()
+        public TestHubConnection Build()
         {
             if (string.IsNullOrEmpty(_hubUrl))
                 throw new InvalidOperationException($"Use {nameof(OnHub)} to set the hub url.");
 
-            if (string.IsNullOrEmpty(_eventName))
-                throw new InvalidOperationException($"Use {nameof(WithExpectedMessage)} to set the expected event name.");
+            if (_expectedEventNames == null || _expectedEventNames.Count == 0)
+                throw new InvalidOperationException($"Use {nameof(WithExpectedEvent)} to set the expected event name.");
 
-            var testConnection = new TestHubConnection<TEvent>(_hubUrl, _eventName);
+            var testConnection = new TestHubConnection(_hubUrl);
+
+            foreach (var expected in _expectedEventNames)
+            {
+                testConnection.Expect(expected.Name, expected.Type);
+            }
 
             Clear();
 
@@ -28,15 +34,18 @@ namespace SignalRIntegrationTesting.Tests
             return this;
         }
 
-        public TestHubConnectionBuilder WithExpectedMessage(string eventName)
+        public TestHubConnectionBuilder WithExpectedEvent<TEvent>(string eventName)
         {
-            _eventName = eventName;
+            if (_expectedEventNames == null)
+                _expectedEventNames = new List<(Type, string)>();
+
+            _expectedEventNames.Add((typeof(TEvent), eventName));
             return this;
         }
 
         private void Clear()
         {
-            _eventName = null;
+            _expectedEventNames = null;
             _hubUrl = null;
         }
     }
