@@ -23,9 +23,15 @@ namespace SignalRIntegrationTesting.Tests
                 {
                     hasTimedOut = true;
                 }
-
-                mock.Verify(expression, times);
-                hasBeenExecuted = true;
+                
+                try
+                {   
+                    mock.Verify(expression, times);
+                    hasBeenExecuted = true;
+                }
+                catch (Exception)
+                {
+                }
 
                 // Feel free to make this configurable
                 await Task.Delay(20);

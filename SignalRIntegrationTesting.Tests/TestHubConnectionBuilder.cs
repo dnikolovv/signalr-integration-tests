@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace SignalRIntegrationTesting.Tests
@@ -16,10 +15,6 @@ namespace SignalRIntegrationTesting.Tests
 
             if (_expectedEventNames == null || _expectedEventNames.Count == 0)
                 throw new InvalidOperationException($"Use {nameof(WithExpectedEvent)} to set the expected event name.");
-
-            var hubConnection = new HubConnectionBuilder()
-                .WithUrl(_hubUrl)
-                .Build();
 
             var testConnection = new TestHubConnection(_hubUrl);
 
